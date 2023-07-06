@@ -23,6 +23,8 @@ class SongAction(abc.ABC):
         if file is None:
             raise ActionError(self, "file is None")
 
+        print(f"Updating mp3 metadata ({metadata_key}) for {file.name}...")
+
         Mp3Metadata(file).set_mp3_metadata(metadata_key, value)
 
     def set_custom_mp3_metadata(
@@ -33,6 +35,8 @@ class SongAction(abc.ABC):
     ) -> None:
         if file is None:
             raise ActionError(self, "file is None")
+
+        print(f"Updating mp3 metadata ({metadata_key.name}) for {file.name}...")
 
         Mp3Metadata(file).set_custom_mp3_metadata(metadata_key, value)
 
@@ -130,6 +134,8 @@ class Delete(SongAction):
         if not song.file.is_file():
             raise ActionError(self, "file does not exist or is not a file")
 
+        print(f"Deleting {song.file.name}...")
+
         song.file.unlink()
 
 
@@ -140,6 +146,8 @@ class Normalize(SongAction):
     def apply(self, song: Song) -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
+
+        print(f"Normalizing audio levels of {song.file.name}...")
 
         audio_segment = AudioSegment.from_mp3(song.file)
         normalized = audio_segment.apply_gain(self.NORMALIZATION - audio_segment.dBFS)
@@ -159,4 +167,6 @@ class RenameFile(SongAction):
             raise ActionError(self, "file is None")
 
         new_file = song.file.with_name(self.new_name)
+        print(f"Renaming {song.file.name} to {new_file.name}...")
         song.file.rename(new_file)
+        song.file = new_file
