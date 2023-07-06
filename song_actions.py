@@ -54,7 +54,6 @@ class UpdateIndexMetadata(SongAction):
 
     def apply(self, song: Song) -> None:
         song.index = self.index
-        # self.set_mp3_metadata(song.file, metadata_key="index", value=str(self.index))
         self.set_custom_mp3_metadata(
             song.file, metadata_key=CustomId3MetadataKey.INDEX, value=str(self.index)
         )
@@ -101,6 +100,8 @@ class Download(SongAction):
     output_file: Path
 
     def apply(self, song: Song) -> None:
+        print(f"Downloading {self.output_file.name}...")
+
         song.video_id = self.video_id
         song.file = self.output_file
 
@@ -139,8 +140,6 @@ class Normalize(SongAction):
     def apply(self, song: Song) -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
-
-        print(str(song.file))
 
         audio_segment = AudioSegment.from_mp3(song.file)
         normalized = audio_segment.apply_gain(self.NORMALIZATION - audio_segment.dBFS)
