@@ -1,36 +1,46 @@
 import re
-from typing import Optional
+from typing import Any, Optional
 
 import yt_dlp
 
 from exceptions import YoutubeVideoMetadataError
 
 
-def get_artist_and_title(video_id: str) -> tuple[Optional[str], str]:
-    video_title = get_video_title(video_id)
+def get_artist_and_title(
+    video_id: str, video_info: Optional[dict[str, Any]] = None
+) -> tuple[Optional[str], str]:
+    video_title = get_video_title(video_id, existing_video_info=video_info)
     return parse_video_title(video_title)
 
 
 cached_video_titles = {}
 
 
-def get_video_title(video_id: str) -> str:
+def get_video_title(
+    video_id: str, existing_video_info: Optional[dict[str, Any]] = None
+) -> str:
     if video_id in cached_video_titles is not None:
         return cached_video_titles[video_id]
 
-    ydl_opts = {"quiet": True, "no_warnings": True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        unsanitized_video_info = ydl.extract_info(video_id, download=False)
-        video_info: dict[str, Any] = ydl.sanitize_info(unsanitized_video_info)  # type: ignore
+    if existing_video_info is not None and "title" in existing_video_info:
+        video_title = existing_video_info["title"]
+    else:
+        ydl_opts = {"quiet": True, "no_warnings": True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            unsanitized_video_info = ydl.extract_info(video_id, download=False)
+            video_info: dict[str, Any] = ydl.sanitize_info(unsanitized_video_info)  # type: ignore
 
-    if video_info is None:
-        raise YoutubeVideoMetadataError(
-            f"could not get video info for video {video_id}"
-        )
-    if "title" not in video_info:
-        raise YoutubeVideoMetadataError(f"could not find title for video {video_id}")
+        if video_info is None:
+            raise YoutubeVideoMetadataError(
+                f"could not get video info for video {video_id}"
+            )
+        if "title" not in video_info:
+            raise YoutubeVideoMetadataError(
+                f"could not find title for video {video_id}"
+            )
 
-    video_title = video_info["title"]
+        video_title = video_info["title"]
+
     cached_video_titles[video_id] = video_title
     return video_title
 

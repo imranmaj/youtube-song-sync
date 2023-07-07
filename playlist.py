@@ -1,9 +1,10 @@
 import dataclasses
 from collections import deque
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional, Type, TypeVar
 
 import yt_dlp
+from prettytable import ALL, SINGLE_BORDER, PrettyTable
 
 import song_actions
 import utils
@@ -52,17 +53,203 @@ class Playlist:
             song.apply()
 
     def render_changelist(self) -> None:
-        raise NotImplementedError()
+        if not self.has_any_song_action(song_actions.SongAction):
+            print("No changes to be applied!")
+            return
+
+        print(
+            f"The following changes will be applied to the local playlist at {str(self.dir)}:",
+            "\n",
+        )
+
+        # downloads
+        if self.has_any_song_action(song_actions.Download):
+            print("The following songs will be downloaded:")
+            downloads_table = self.make_table(
+                ["Filename", "Title", "Artist", "Video ID", "Index"]
+            )
+            for song, action in self.get_songs_with_action(song_actions.Download):
+                downloads_table.add_row(
+                    self.clean_table_row(
+                        [
+                            action.output_file.name,
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            song.get_future_video_id(),
+                            song.get_future_index(),
+                        ]
+                    )
+                )
+            print(downloads_table, "\n")
+
+        # normalization
+        if self.has_any_song_action(song_actions.Normalize):
+            print("The following songs will have their audio levels normalized:")
+            normalized_table = self.make_table(["Title", "Artist", "Index"])
+            for song, action in self.get_songs_with_action(song_actions.Normalize):
+                normalized_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            song.get_future_index(),
+                        ]
+                    )
+                )
+            print(normalized_table, "\n")
+
+        # video id metadata
+        if self.has_any_song_action(song_actions.UpdateVideoIdMetadata):
+            print("The following songs will have their video ID metadata updated:")
+            video_id_table = self.make_table(
+                ["Title", "Artist", "Index", "Old Video ID", "New Video ID"]
+            )
+            for song, _ in self.get_songs_with_action(
+                song_actions.UpdateVideoIdMetadata
+            ):
+                video_id_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            song.get_future_index(),
+                            song.video_id,
+                            song.get_future_video_id(),
+                        ]
+                    )
+                )
+            print(video_id_table, "\n")
+
+        # index metadata
+        if self.has_any_song_action(song_actions.UpdateIndexMetadata):
+            print("The following songs will have their index metadata updated:")
+            index_table = self.make_table(["Title", "Artist", "Old Index", "New Index"])
+            for song, _ in self.get_songs_with_action(song_actions.UpdateIndexMetadata):
+                index_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            song.index,
+                            song.get_future_index(),
+                        ]
+                    )
+                )
+            print(index_table, "\n")
+
+        # title metadata
+        if self.has_any_song_action(song_actions.UpdateTitleMetadata):
+            print("The following songs will have their title metadata updated:")
+            title_table = self.make_table(["Artist", "Index", "Old Title", "New Title"])
+            for song, _ in self.get_songs_with_action(song_actions.UpdateTitleMetadata):
+                title_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_artist(),
+                            song.get_future_index(),
+                            song.title,
+                            song.get_future_title(),
+                        ]
+                    )
+                )
+            print(title_table, "\n")
+
+        # artist metadata
+        if self.has_any_song_action(song_actions.UpdateArtistMetadata):
+            print("The following songs will have their artist metadata updated:")
+            artist_table = self.make_table(
+                ["Title", "Index", "Old Artist", "New Artist"]
+            )
+            for song, _ in self.get_songs_with_action(
+                song_actions.UpdateArtistMetadata
+            ):
+                artist_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_index(),
+                            song.artist,
+                            song.get_future_artist(),
+                        ]
+                    )
+                )
+            print(artist_table, "\n")
+
+        # rename file
+        if self.has_any_song_action(song_actions.RenameFile):
+            print("The following songs will have their files renamed:")
+            rename_file_table = self.make_table(
+                ["Title", "Artist", "Old Filename", "New Filename"]
+            )
+            for song, action in self.get_songs_with_action(song_actions.RenameFile):
+                rename_file_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            None if song.file is None else song.file.name,
+                            action.new_name,
+                        ]
+                    )
+                )
+            print(rename_file_table, "\n")
+
+        # delete file
+        if self.has_any_song_action(song_actions.Delete):
+            print("The following songs will have their files PERMANENTLY DELETED:")
+            delete_table = self.make_table(["Title", "Artist", "Filename"])
+            for song, action in self.get_songs_with_action(song_actions.Delete):
+                delete_table.add_row(
+                    self.clean_table_row(
+                        [
+                            song.get_future_title(),
+                            song.get_future_artist(),
+                            None if song.file is None else song.file.name,
+                        ]
+                    )
+                )
+            print(delete_table, "\n")
+
+    def make_table(self, field_names: list[str]) -> PrettyTable:
+        table = PrettyTable(field_names, hrules=ALL)
+        table.set_style(SINGLE_BORDER)
+        return table
+
+    @staticmethod
+    def clean_table_row(row: list[Any]) -> list[Any]:
+        for i, value in enumerate(row):
+            if value is None:
+                row[i] = "(none)"
+        return row
+
+    def has_any_song_action(
+        self, song_action_type: Type[song_actions.SongAction]
+    ) -> bool:
+        for song in self.songs:
+            for action in song.actions:
+                if isinstance(action, song_action_type):
+                    return True
+        return False
+
+    T = TypeVar("T", bound=song_actions.SongAction)
+
+    def get_songs_with_action(
+        self, song_action_type: Type[T]
+    ) -> Iterable[tuple[Song, T]]:
+        for song in self.songs:
+            for action in song.actions:
+                if isinstance(action, song_action_type):
+                    yield song, action
 
     def sync(self, playlist_id: str) -> None:
-        print("Determining changes to be applied...")
-
         if self.dir is None:
             raise ValueError(f"cannot sync playlist: dir is None")
 
+        print("Downloading playlist metadata...")
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
+            "ignoreerrors": True,  # don't exit on private/unavailable videos
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             unsanitized_playlist_info = ydl.extract_info(playlist_id, download=False)
@@ -77,12 +264,17 @@ class Playlist:
                 f"could not get playlist entries for playlist {playlist_id}"
             )
 
-        for i, video in enumerate(playlist_info["entries"]):
-            if "id" not in video:
+        print("Determining changes to be applied...")
+        for i, video_info in enumerate(playlist_info["entries"]):
+            # skip unavailable/private videos
+            if video_info is None:
+                continue
+
+            if "id" not in video_info:
                 raise YoutubeVideoMetadataError(
-                    f"could not find id for video in playlist {playlist_id} at index {i}: {video}"
+                    f"could not find id for video in playlist {playlist_id} at index {i}: {video_info}"
                 )
-            video_id = video["id"]
+            video_id = video_info["id"]
 
             # song exists
             if (
@@ -104,7 +296,7 @@ class Playlist:
             # song does not exist, create it
             else:
                 new_song = Song()
-                artist, title = utils.get_artist_and_title(video_id)
+                artist, title = utils.get_artist_and_title(video_id, video_info)
                 new_song.actions.extend(
                     [
                         song_actions.Download(
@@ -122,6 +314,10 @@ class Playlist:
 
         # delete songs that exist locally but not in the youtube playlist
         # ie the songs that haven't been removed from video_id_to_remaining_songs
+        # (songs that will be in the final playlist were removed while iterating over the
+        # Youtube playlist)
         for remaining_songs in self.video_id_to_remaining_songs.values():
             for song in remaining_songs:
                 song.actions.append(song_actions.Delete())
+
+        print()

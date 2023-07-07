@@ -2,10 +2,8 @@ import dataclasses
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+import song_actions
 from mp3_metadata import CustomId3MetadataKey, Mp3Metadata
-
-if TYPE_CHECKING:
-    import song_actions
 
 
 @dataclasses.dataclass

@@ -1,7 +1,7 @@
 import abc
 import dataclasses
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import tqdm
 import yt_dlp
@@ -9,12 +9,14 @@ from pydub import AudioSegment
 
 from exceptions import ActionError
 from mp3_metadata import CustomId3MetadataKey, Mp3Metadata
-from song import Song
+
+if TYPE_CHECKING:
+    from song import Song
 
 
 class SongAction(abc.ABC):
     @abc.abstractmethod
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         pass
 
     def set_mp3_metadata(
@@ -36,7 +38,7 @@ class SongAction(abc.ABC):
         if file is None:
             raise ActionError(self, "file is None")
 
-        print(f"Updating mp3 metadata ({metadata_key.name}) for {file.name}...")
+        print(f"Updating mp3 metadata ({metadata_key.name.lower()}) for {file.name}...")
 
         Mp3Metadata(file).set_custom_mp3_metadata(metadata_key, value)
 
@@ -45,7 +47,7 @@ class SongAction(abc.ABC):
 class UpdateVideoIdMetadata(SongAction):
     video_id: str
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         song.video_id = self.video_id
         self.set_custom_mp3_metadata(
             song.file, metadata_key=CustomId3MetadataKey.VIDEO_ID, value=self.video_id
@@ -56,7 +58,7 @@ class UpdateVideoIdMetadata(SongAction):
 class UpdateIndexMetadata(SongAction):
     index: int
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         song.index = self.index
         self.set_custom_mp3_metadata(
             song.file, metadata_key=CustomId3MetadataKey.INDEX, value=str(self.index)
@@ -67,7 +69,7 @@ class UpdateIndexMetadata(SongAction):
 class UpdateArtistMetadata(SongAction):
     artist: Optional[str]
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         song.artist = self.artist
         self.set_mp3_metadata(song.file, metadata_key="artist", value=self.artist)
 
@@ -76,7 +78,7 @@ class UpdateArtistMetadata(SongAction):
 class UpdateTitleMetadata(SongAction):
     title: str
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         song.title = self.title
         self.set_mp3_metadata(song.file, metadata_key="title", value=self.title)
 
@@ -103,7 +105,7 @@ class Download(SongAction):
     video_id: str
     output_file: Path
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         print(f"Downloading {self.output_file.name}...")
 
         song.video_id = self.video_id
@@ -128,7 +130,7 @@ class Download(SongAction):
 
 @dataclasses.dataclass(eq=True, frozen=True)
 class Delete(SongAction):
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
         if not song.file.is_file():
@@ -143,7 +145,7 @@ class Delete(SongAction):
 class Normalize(SongAction):
     NORMALIZATION = -20
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
 
@@ -162,7 +164,7 @@ class Normalize(SongAction):
 class RenameFile(SongAction):
     new_name: str
 
-    def apply(self, song: Song) -> None:
+    def apply(self, song: "Song") -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
 
