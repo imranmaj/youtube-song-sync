@@ -1,9 +1,11 @@
 from pathlib import Path
+from typing import Optional
 
 import click
 
 from ytss import song_actions, utils
 from ytss.playlist import Playlist
+from ytss.song import Song
 
 
 @click.group()
@@ -64,12 +66,14 @@ def sync(
     Local changes to the directory are not applied to the remote YouTube playlist.
     Only changes to the YouTube playlist will be applied to the local directory.
 
-    Only "tracked" songs are affected. If a song was not downloaded by YTSS,
-    then by default it is not tracked.
+    Only "tracked" songs are affected.
+    If a song was not downloaded by YTSS, then by default it is not tracked.
+    MP3 files can be tracked by using the update-metadata command with the --video-id option
+    on the file to add video ID metadata.
 
+    \b
     The following changes will be made to the local directory:
-    - If any songs exist in the YouTube playlist that do not exist locally,
-    those songs will be downloaded.
+    - If any songs exist in the YouTube playlist that do not exist locally, those songs will be downloaded.
     - If any songs exist locally that do not exist in the YouTube playlist, they will be deleted.
     - If the order of any songs is changed in the YouTube playlist, the files will be renamed locally.
     - Audio levels of all downloaded songs are normalized so the volume is consistent.
@@ -83,12 +87,56 @@ def sync(
         delete_allowed=not no_delete,
         rename_allowed=not no_rename,
     )
-    playlist.render_changelist()
-    if playlist.has_any_song_action(song_actions.SongAction):
-        utils.get_confirmation()
-        playlist.apply()
+    playlist.confirm_and_apply()
+
+
+@click.command(name="update-metadata")
+@click.argument("file", type=click.Path(path_type=Path))
+@click.option(
+    "--title", "new_title", type=click.STRING, help="The new title of the song"
+)
+@click.option(
+    "--artist", "new_artist", type=click.STRING, help="The new artist of the song"
+)
+@click.option(
+    "--video-id", "new_video_id", type=click.STRING, help="The new video ID of the song"
+)
+@click.option(
+    "--index", "new_index", type=click.INT, help="The new index/position of the song"
+)
+@click.option(
+    "--no-rename",
+    type=click.BOOL,
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Do not rename local files",
+)
+def update_metadata(
+    file: Path,
+    new_title: Optional[str],
+    new_artist: Optional[str],
+    new_video_id: Optional[str],
+    new_index: Optional[int],
+    no_rename: bool,
+) -> None:
+    """
+    Updates the MP3 metadata for a file
+    and renames the file with the updated metadata.
+    """
+
+    song = Song.from_file(file)
+    song.update_metadata(
+        new_title,
+        new_artist,
+        new_video_id,
+        new_index,
+        rename_allowed=not no_rename,
+    )
+    song.confirm_and_apply()
 
 
 cli.add_command(sync)
+cli.add_command(update_metadata)
 
 cli()

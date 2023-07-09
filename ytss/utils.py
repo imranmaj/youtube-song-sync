@@ -90,18 +90,6 @@ def sanitize_filename(filename: str) -> str:
     return filename.translate(table)
 
 
-def get_confirmation() -> None:
-    print("Please read the above carefully before continuing.")
-    print("The above changes will be applied if you choose to continue.")
-    response = input(
-        'If you like to continue, type "yes" (only "yes" will be accepted to continue): '
-    )
-    if response != "yes":
-        print("Aborting.")
-        raise SystemExit()
-    print()
-
-
 def get_info(
     playlist_or_video_url_or_id: str, ignore_errors: bool = False, resolve: bool = True
 ) -> dict[str, Any]:

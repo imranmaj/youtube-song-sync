@@ -133,8 +133,10 @@ class Delete(SongAction):
     def apply(self, song: "Song") -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
+        if not song.file.exists():
+            raise FileNotFoundError(f"file {song.file} does not exist")
         if not song.file.is_file():
-            raise ActionError(self, "file does not exist or is not a file")
+            raise ActionError(self, f"file {song.file} is not a file")
 
         print(f"Deleting {song.file.name}...")
 
