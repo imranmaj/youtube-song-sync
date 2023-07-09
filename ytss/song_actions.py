@@ -7,8 +7,9 @@ import tqdm
 import yt_dlp
 from pydub import AudioSegment
 
-from exceptions import ActionError
-from mp3_metadata import CustomId3MetadataKey, Mp3Metadata
+from ytss.constants import DEFAULT_YOUTUBE_DL_OPTS, NORMALIZATION, CustomId3MetadataKey
+from ytss.exceptions import ActionError
+from ytss.mp3_metadata import Mp3Metadata
 
 if TYPE_CHECKING:
     from song import Song
@@ -112,9 +113,8 @@ class Download(SongAction):
         song.file = self.output_file
 
         ydl_opts = {
+            **DEFAULT_YOUTUBE_DL_OPTS,
             "format": "bestaudio",
-            "quiet": True,
-            "no_warnings": True,
             "outtmpl": str(song.file.with_suffix("")),
             "progress_hooks": [ProgressHook()],
             "postprocessors": [
@@ -143,8 +143,6 @@ class Delete(SongAction):
 
 @dataclasses.dataclass(eq=True, frozen=True)
 class Normalize(SongAction):
-    NORMALIZATION = -20
-
     def apply(self, song: "Song") -> None:
         if song.file is None:
             raise ActionError(self, "file is None")
@@ -152,7 +150,7 @@ class Normalize(SongAction):
         print(f"Normalizing audio levels of {song.file.name}...")
 
         audio_segment = AudioSegment.from_mp3(song.file)
-        normalized = audio_segment.apply_gain(self.NORMALIZATION - audio_segment.dBFS)
+        normalized = audio_segment.apply_gain(NORMALIZATION - audio_segment.dBFS)
 
         dest_temp = song.file.with_name(song.file.name + ".temp")
         normalized.export(dest_temp, bitrate="121k")

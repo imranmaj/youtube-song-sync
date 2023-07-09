@@ -1,16 +1,11 @@
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import eyed3
 import eyed3.id3
 
-from exceptions import Mp3MetadataError
-
-
-class CustomId3MetadataKey(Enum):
-    VIDEO_ID = "YoutubeSongSync_video_id"
-    INDEX = "YoutubeSongSync_index"
+from ytss.constants import CustomId3MetadataKey
+from ytss.exceptions import Mp3MetadataError
 
 
 class Mp3Metadata:
@@ -31,9 +26,7 @@ class Mp3Metadata:
     ) -> Optional[str]:
         tag = self._get_tag()
         if tag.user_text_frames is None:
-            raise Mp3MetadataError(
-                f"could not load custom user mp3 metadata for file {self.file}"
-            )
+            raise Mp3MetadataError(f"no custom user mp3 metadata for file {self.file}")
         text_frame = tag.user_text_frames.get(description=metadata_key.value)
         if text_frame is None:
             return None
@@ -46,9 +39,7 @@ class Mp3Metadata:
     ) -> None:
         tag = self._get_tag()
         if tag.user_text_frames is None:
-            raise Mp3MetadataError(
-                f"could not load custom user mp3 metadata for file {self.file}"
-            )
+            raise Mp3MetadataError(f"no custom user mp3 metadata for file {self.file}")
         tag.user_text_frames.set(value, description=metadata_key.value)
         tag.save()
 
@@ -56,7 +47,7 @@ class Mp3Metadata:
         metadata = eyed3.load(self.file)
         if metadata is None:
             raise Mp3MetadataError(
-                f"could not load mp3 metadata for file {self.file}: file is not an mp3 file"
+                f"no mp3 metadata for file {self.file}: file is not an mp3 file"
             )
         if metadata.tag is None:
             metadata.initTag()

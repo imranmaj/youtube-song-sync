@@ -1,9 +1,10 @@
 import dataclasses
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-import song_actions
-from mp3_metadata import CustomId3MetadataKey, Mp3Metadata
+from ytss import song_actions
+from ytss.constants import CustomId3MetadataKey
+from ytss.mp3_metadata import Mp3Metadata
 
 
 @dataclasses.dataclass
@@ -19,14 +20,10 @@ class Song:
         for action in self.actions:
             action.apply(self)
 
-    # @staticmethod
-    # def from_video_id_or_url(video_id_or_url: str) -> "Song":
-    #     raise NotImplementedError()
-
     @staticmethod
     def from_file(file: Path) -> "Song":
         if not file.is_file():
-            raise ValueError(f"file {file} is not a file")
+            raise FileNotFoundError(f"file {file} is not a file")
 
         metadata = Mp3Metadata(file)
         video_id = metadata.get_custom_mp3_metadata(CustomId3MetadataKey.VIDEO_ID)

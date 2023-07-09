@@ -3,3 +3,4 @@ pydub==0.25.1
 yt-dlp==2023.6.22
 tqdm==4.65.0
 prettytable==3.8.0
+click==8.1.4

@@ -3,14 +3,13 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Iterable, Optional, Type, TypeVar
 
-import yt_dlp
 from prettytable import ALL, SINGLE_BORDER, PrettyTable
 
-import song_actions
-import utils
-from exceptions import YoutubeVideoMetadataError
-from mp3_metadata import CustomId3MetadataKey, Mp3Metadata
-from song import Song
+from ytss import song_actions, utils
+from ytss.constants import CustomId3MetadataKey
+from ytss.exceptions import YoutubeVideoMetadataError
+from ytss.mp3_metadata import Mp3Metadata
+from ytss.song import Song
 
 
 @dataclasses.dataclass
@@ -53,9 +52,14 @@ class Playlist:
             song.apply()
 
     def render_changelist(self) -> None:
+        print()
+
         if not self.has_any_song_action(song_actions.SongAction):
             print("No changes to be applied!")
             return
+
+        if self.title is not None:
+            print(f'Planning to sync with YouTube playlist "{self.title}"')
 
         print(
             f"The following changes will be applied to the local playlist at {str(self.dir)}:",
@@ -241,27 +245,21 @@ class Playlist:
                 if isinstance(action, song_action_type):
                     yield song, action
 
-    def sync(self, playlist_id: str) -> None:
+    def sync(
+        self, playlist_id: str, delete_allowed: bool, rename_allowed: bool
+    ) -> None:
         if self.dir is None:
             raise ValueError(f"cannot sync playlist: dir is None")
 
         print("Downloading playlist metadata...")
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": True,  # don't exit on private/unavailable videos
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            unsanitized_playlist_info = ydl.extract_info(playlist_id, download=False)
-            playlist_info: dict[str, Any] = ydl.sanitize_info(unsanitized_playlist_info)  # type: ignore
+        playlist_info = utils.get_info(playlist_id, ignore_errors=True)
 
-        if playlist_info is None:
-            raise YoutubeVideoMetadataError(
-                f"could not get playlist info for playlist {playlist_id}"
-            )
+        if "title" in playlist_info and playlist_info["title"] is not None:
+            self.title = playlist_info["title"]
+
         if "entries" not in playlist_info:
-            raise YoutubeVideoMetadataError(
-                f"could not get playlist entries for playlist {playlist_id}"
+            raise YoutubeVideoMetadataError.info_missing_key(
+                "playlist_id", "entries", playlist_info
             )
 
         print("Determining changes to be applied...")
@@ -272,7 +270,7 @@ class Playlist:
 
             if "id" not in video_info:
                 raise YoutubeVideoMetadataError(
-                    f"could not find id for video in playlist {playlist_id} at index {i}: {video_info}"
+                    f"no id for video in playlist {playlist_id} at index {i}: {video_info}"
                 )
             video_id = video_info["id"]
 
@@ -285,7 +283,8 @@ class Playlist:
                 # the index is wrong though, move it to the correct position
                 if existing_song.index is None or existing_song.index != i:
                     existing_song.actions.append(song_actions.UpdateIndexMetadata(i))
-                    if existing_song.title is not None:
+                    # rename the file to reflect the new index
+                    if rename_allowed and existing_song.title is not None:
                         existing_song.actions.append(
                             song_actions.RenameFile(
                                 utils.make_filename(
@@ -316,8 +315,7 @@ class Playlist:
         # ie the songs that haven't been removed from video_id_to_remaining_songs
         # (songs that will be in the final playlist were removed while iterating over the
         # Youtube playlist)
-        for remaining_songs in self.video_id_to_remaining_songs.values():
-            for song in remaining_songs:
-                song.actions.append(song_actions.Delete())
-
-        print()
+        if delete_allowed:
+            for remaining_songs in self.video_id_to_remaining_songs.values():
+                for song in remaining_songs:
+                    song.actions.append(song_actions.Delete())

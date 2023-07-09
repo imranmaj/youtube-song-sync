@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from song_actions import SongAction
+    from ytss.song_actions import SongAction
 
 
 class ActionError(Exception):
@@ -12,5 +12,12 @@ class ActionError(Exception):
 class Mp3MetadataError(Exception):
     pass
 
+
 class YoutubeVideoMetadataError(Exception):
-    pass
+    @staticmethod
+    def info_missing_key(
+        playlist_or_video_url_or_id: str, key: str, info: dict[str, Any]
+    ) -> "YoutubeVideoMetadataError":
+        return YoutubeVideoMetadataError(
+            f'info for "{playlist_or_video_url_or_id}" missing key "{key}" (actual keys: {list(info.keys())})'
+        )
