@@ -15,7 +15,7 @@ class Song(Actionable):
     artist: Optional[str] = None
     title: Optional[str] = None
     file: Optional[Path] = None
-    actions: list["song_actions.SongAction"] = dataclasses.field(default_factory=list)
+    actions: list[song_actions.SongAction] = dataclasses.field(default_factory=list)
 
     def apply(self) -> None:
         for action in self.actions:
@@ -73,6 +73,29 @@ class Song(Actionable):
                         utils.make_filename(future_artist, future_title, future_index)
                     )
                 )
+
+    def track(self, video_id: str) -> None:
+        self.actions.append(song_actions.UpdateVideoIdMetadata(video_id))
+
+    def download(
+        self, video_id: str, playlist_directory: Path, normalize_allowed: bool
+    ) -> None:
+        artist, title = utils.get_artist_and_title(video_id)
+        self.actions.append(
+            song_actions.Download(
+                video_id,
+                playlist_directory / utils.make_filename(artist, title, index=None),
+            )
+        )
+        if normalize_allowed:
+            self.actions.append(song_actions.Normalize())
+        self.actions.extend(
+            [
+                song_actions.UpdateArtistMetadata(artist),
+                song_actions.UpdateTitleMetadata(title),
+                song_actions.UpdateVideoIdMetadata(video_id),
+            ]
+        )
 
     def get_future_video_id(self) -> Optional[str]:
         video_id = self.video_id

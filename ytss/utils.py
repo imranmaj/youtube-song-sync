@@ -76,11 +76,13 @@ def parse_video_title(video_title: str) -> tuple[Optional[str], str]:
     return artist, title
 
 
-def make_filename(artist: Optional[str], title: str, index: int) -> str:
-    if artist is None:
-        new_name = f"{index} {title}.mp3"
-    else:
-        new_name = f"{index} {artist} - {title}.mp3"
+def make_filename(artist: Optional[str], title: str, index: Optional[int]) -> str:
+    new_name = ""
+    if index is not None:
+        new_name += f"{index} "
+    if artist is not None:
+        new_name += f"{artist} - "
+    new_name += f"{title}.mp3"
 
     return sanitize_filename(new_name)
 

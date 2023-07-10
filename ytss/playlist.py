@@ -65,7 +65,11 @@ class Playlist(Actionable):
         super().render_changelist()
 
     def sync(
-        self, playlist_id: str, delete_allowed: bool, rename_allowed: bool
+        self,
+        playlist_id: str,
+        delete_allowed: bool,
+        rename_allowed: bool,
+        normalize_allowed: bool,
     ) -> None:
         if self.dir is None:
             raise ValueError(f"cannot sync playlist: dir is None")
@@ -115,13 +119,16 @@ class Playlist(Actionable):
             else:
                 new_song = Song()
                 artist, title = utils.get_artist_and_title(video_id, video_info)
+                new_song.actions.append(
+                    song_actions.Download(
+                        video_id,
+                        self.dir / utils.make_filename(artist, title, i),
+                    )
+                )
+                if normalize_allowed:
+                    new_song.actions.append(song_actions.Normalize())
                 new_song.actions.extend(
                     [
-                        song_actions.Download(
-                            video_id,
-                            self.dir / utils.make_filename(artist, title, i),
-                        ),
-                        song_actions.Normalize(),
                         song_actions.UpdateArtistMetadata(artist),
                         song_actions.UpdateTitleMetadata(title),
                         song_actions.UpdateIndexMetadata(i),
@@ -138,3 +145,19 @@ class Playlist(Actionable):
             for remaining_songs in self.video_id_to_remaining_songs.values():
                 for song in remaining_songs:
                     song.actions.append(song_actions.Delete())
+
+    def list_songs(self) -> None:
+        print()
+        print(f"The following songs are tracked in the playlist at {self.dir}:")
+
+        songs_table = self.make_table(
+            ["Filename", "Title", "Artist", "Index", "Video ID"]
+        )
+        for song in self.songs:
+            filename = None if song.file is None else song.file.name
+            songs_table.add_row(
+                self.clean_table_row(
+                    [filename, song.title, song.artist, song.index, song.video_id]
+                )
+            )
+        print(songs_table)
